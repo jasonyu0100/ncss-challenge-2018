@@ -3,7 +3,7 @@ import random
 import itertools
 
 def play(hand, isStartOfRound, playToBeat, roundHistory, playerNo, handSizes, scores, roundNo):
-  bot = BigTwoBot(0,BigTwoBot.winningStrategy,BotGenes(BotGenes.G_ONE))
+  bot = BigTwoBot(0,BigTwoBot.winningStrategy,BotGenes(BotGenes.G_FIVE))
   play = bot.strategy(bot,hand, isStartOfRound, playToBeat, roundHistory, playerNo, handSizes, scores, roundNo)
   if Dealer.validPlay(hand,play,playToBeat) == True: return play
   else: return []
@@ -504,29 +504,37 @@ class BigTwoBot:
     self.botGenes = botGenes
 
   def optimalComboPlan(self,cards):
-    def addCombos(optimalCombos,cards,combinationFunction,key):
-      optimalCombos[key] = combinationFunction(cards)
-      Dealer.removeComboCards(optimalCombos[key],cards)
-    cards = set(cards)
-    twos = [card for card in cards if card[0] == '2']
+    def addComboesToPlan(comboType,cards,allComboFunction,comboPlan):
+      combos = []
+      while True:
+        allCurrentCombos = allComboFunction(cards)
+        if len(allCurrentCombos) == 0:
+          break
+        bestCombo = Dealer.sortComboType(allCurrentCombos,comboType)[-1]
+        combos.append(bestCombo)
+        for card in bestCombo:
+          cards.remove(card)
+      comboPlan[comboType] = combos
+
+    availableCards = set(copy.deepcopy(cards))
+    twos = [card for card in availableCards if card[0] == '2']
     for two in twos: 
-      cards.remove(two)
+      availableCards.remove(two)
     comboPlan = {}
-    addCombos(comboPlan,cards,Dealer.getAllStraightFlushCombos,'STRAIGHT_FLUSH')
-    addCombos(comboPlan,cards,Dealer.quadLengthCombinations,'QUAD')
-    addCombos(comboPlan,cards,Dealer.getAllFullHouses,'FULL')
-    addCombos(comboPlan,cards,Dealer.getAllFlushCombos,'FLUSH')
-    addCombos(comboPlan,cards,Dealer.getAllStraights,'STRAIGHT')
-    remainingCards = copy.deepcopy(cards)
-    addCombos(comboPlan,cards,Dealer.tripleLengthCombinations,'TRIPLE')
-    addCombos(comboPlan,cards,Dealer.doubleLengthCombinations,'DOUBLE')
-    addCombos(comboPlan,cards,Dealer.singleLengthCombinations,'SINGLE')
+    addComboesToPlan('STRAIGHT_FLUSH',availableCards,Dealer.getAllStraightFlushCombos,comboPlan)
+    addComboesToPlan('QUAD',availableCards,Dealer.quadLengthCombinations,comboPlan)
+    addComboesToPlan('FULL',availableCards,Dealer.getAllFullHouses,comboPlan)
+    addComboesToPlan('FLUSH',availableCards,Dealer.getAllFlushCombos,comboPlan)
+    addComboesToPlan('STRAIGHT',availableCards,Dealer.getAllStraights,comboPlan)
+    addComboesToPlan('TRIPLE',availableCards,Dealer.tripleLengthCombinations,comboPlan)
+    addComboesToPlan('DOUBLE',availableCards,Dealer.doubleLengthCombinations,comboPlan)
+    addComboesToPlan('SINGLE',availableCards,Dealer.singleLengthCombinations,comboPlan)
     comboPlan['SINGLE'] += [[two] for two in twos]
     if len(comboPlan['QUAD']) > 0:
-      sortedRemainingCards = Dealer.sortCards(remainingCards) 
+      sortedRemainingCards = Dealer.sortComboType(comboPlan['SINGLE'],'SINGLE') 
       if len(sortedRemainingCards) > 0:
         minRemainingCard = sortedRemainingCards[0]
-        for combo in comboPlan['QUAD']: combo.append(minRemainingCard)
+        for combo in comboPlan['QUAD']: combo.append(minRemainingCard[0])
       else:
         newSingles = set(card for combo in comboPlan['QUAD'] for card in combo)
         comboPlan['SINGLE'] += [[card] for card in newSingles]
@@ -654,7 +662,7 @@ class BigTwoBot:
     elif closeWinnerCheck: #Remaining players have few cards left
       combos = Dealer.availableComboBeaters(hand,comboType)
       return self.minCardPlay(combos,playToBeat,comboType)
-    elif False: #self.prevPlayerHighPlayCheck(roundHistory[-1][-1][-1]): #Previous player has played a high hand
+    elif self.prevPlayerHighPlayCheck(roundHistory[-1][-1][-1]): #Previous player has played a high hand
       return []
     elif comboType == 'SINGLE':
       minSingle = self.minCardPlay(optimalCombos['SINGLE'],playToBeat,comboType)
@@ -662,7 +670,7 @@ class BigTwoBot:
       else: return self.singlePlay(minSingle,unplayed,hand)
     else:
       playableComboTypes = Dealer.getPlayableComboTypes(comboType)
-      for currentComboType in playableComboTypes:
+      for currentComboType in reversed(playableComboTypes):
         minimumPlay = self.minCardPlay(optimalCombos[currentComboType],playToBeat,currentComboType)
         if minimumPlay != []: 
           return minimumPlay
@@ -671,6 +679,10 @@ class BigTwoBot:
 
 class BotGenes:
   G_ONE = {'STRAIGHT_FLUSH': 17, 'FLUSH': 27, 'STRAIGHT': 30, 'QUAD': 12, 'FULL': 36, 'TRIPLE': 21, 'DOUBLE': 31, 'SINGLE': 21, 'CLOSE_WIN': 3, 'LOWER_SINGLE': 80, 'HIGHER_SINGLE': 84}
+  G_TWO = {'STRAIGHT_FLUSH': 34, 'FLUSH': 17, 'STRAIGHT': 35, 'QUAD': 20, 'FULL': 31, 'TRIPLE': 27, 'DOUBLE': 37, 'SINGLE': 33, 'CLOSE_WIN': 3, 'LOWER_SINGLE': 84, 'HIGHER_SINGLE': 95}
+  G_THREE = {'STRAIGHT_FLUSH': 7, 'FLUSH': 0, 'STRAIGHT': 38, 'QUAD': 14, 'FULL': 32, 'TRIPLE': 21, 'DOUBLE': 10, 'SINGLE': 31, 'CLOSE_WIN': 2, 'LOWER_SINGLE': 85, 'HIGHER_SINGLE': 96}
+  G_FOUR = {'STRAIGHT_FLUSH': 25, 'FLUSH': 9, 'STRAIGHT': 22, 'QUAD': 14, 'FULL': 27, 'TRIPLE': 34, 'DOUBLE': 29, 'SINGLE': 36, 'CLOSE_WIN': 3, 'LOWER_SINGLE': 86, 'HIGHER_SINGLE': 94}
+  G_FIVE = {'STRAIGHT_FLUSH': 6, 'FLUSH': 17, 'STRAIGHT': 30, 'QUAD': 26, 'FULL': 15, 'TRIPLE': 46, 'DOUBLE': 24, 'SINGLE': 43, 'CLOSE_WIN': 4, 'LOWER_SINGLE': 74, 'HIGHER_SINGLE': 96}
   def __init__(self,genes):
     if genes == False:
       self.generateGenes()
@@ -709,9 +721,9 @@ class BotPopulation:
   def calculateFitness(self):
     players = [
     None,
-    BigTwoBot(1,BigTwoBot.winningStrategy,BotGenes(BotGenes.G_ONE)),
-    BigTwoBot(1,BigTwoBot.minPlayStrategy,BotGenes(BotGenes.G_ONE)),
-    BigTwoBot(1,BigTwoBot.minPlayStrategy,BotGenes(BotGenes.G_ONE)),
+    BigTwoBot(1,BigTwoBot.winningStrategy,BotGenes(BotGenes.G_THREE)),
+    BigTwoBot(1,BigTwoBot.minPlayStrategy,BotGenes(BotGenes.G_TWO)),
+    BigTwoBot(1,BigTwoBot.minPlayStrategy,BotGenes(BotGenes.G_THREE)),
     ]
     for currentBot in self.population:
       players[0] = currentBot
@@ -776,19 +788,19 @@ class BotPopulation:
     return self.getAverageGene()
 
 # TRAINING 
-pop = BotPopulation(50,10)
-best = pop.trainPopulation(50)
-print(best)
+# pop = BotPopulation(50,10)
+# best = pop.trainPopulation(50)
+# print(best)
 
 # EVALUATION
 players = [
-          BigTwoBot('Bot 1',BigTwoBot.winningStrategy,BotGenes(BotGenes.G_ONE)),
-          BigTwoBot('Bot 2',BigTwoBot.minPlayStrategy,BotGenes(BotGenes.G_ONE)),
+          BigTwoBot('Bot 1',BigTwoBot.winningStrategy,BotGenes(BotGenes.G_FIVE)),
+          BigTwoBot('Bot 2',BigTwoBot.playerStrategy,BotGenes(BotGenes.G_ONE)),
           BigTwoBot('Bot 3',BigTwoBot.minPlayStrategy,BotGenes(BotGenes.G_ONE)),
           BigTwoBot('Bot 4',BigTwoBot.minPlayStrategy,BotGenes(BotGenes.G_ONE)),
           ]
 game = Dealer(len(players),players)
-print(Dealer.testing(players,1000,False))
+print(Dealer.testing(players,1,True))
 
 # CUSTOM GAME
 # players = [
