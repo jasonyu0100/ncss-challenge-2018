@@ -1,0 +1,17 @@
+play min
+play card that cant be beaten
+bait out good cards from otthers by playing min
+pass moves where someonee else can beat
+then play your cards
+
+if cqrds beats other card within a certain range play ie playing an Ace on a king
+
+
+always play min card on a free turn
+always play min card on low cards
+
+if min card definitely wins play it
+dont use high cards until there arent that many counters that beat
+
+keep aces and 2s for plays
+if someone is going to win play min cards that beat
